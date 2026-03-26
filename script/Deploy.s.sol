@@ -85,10 +85,10 @@ contract DeployScript is Script {
     
     function _saveAddresses() internal {
         string memory output = string(abi.encodePacked(
-            "MiniLend Address: ", vm.toString(address(lend)), "\n",
-            "USDC Address: ", vm.toString(address(asset)), "\n",
-            "WETH Address: ", vm.toString(address(collateral)), "\n",
-            "Oracle Address: ", vm.toString(address(oracle)), "\n",
+            "LEND Address: ", vm.toString(address(lend)), "\n",
+            "ASSET Address: ", vm.toString(address(asset)), "\n",
+            "COLLATERAL Address: ", vm.toString(address(collateral)), "\n",
+            "ORACLE Address: ", vm.toString(address(oracle)), "\n",
             "RiskManager Address: ", vm.toString(address(riskManager)), "\n",
             "InterestRateModel Address: ", vm.toString(address(interestModel))
         ));
