@@ -1,13 +1,13 @@
 const { ethers } = require("ethers");
 
-// 1️⃣ RPC（用你自己的）
+// RPC（用你自己的）
 const RPC_URL = "http://127.0.0.1:8545"; // 或 sepolia
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 
-// 2️⃣ 合约地址
+//  合约地址
 const CONTRACT_ADDRESS = "你的合约地址";
 
-// 3️⃣ ABI（只放事件即可）
+//  ABI（只放事件即可）
 const ABI = [
     "event Deposited(address indexed user, uint256 amount, uint256 time)",
     "event Withdrawn(address indexed user, uint256 amount, uint256 time)",
@@ -19,20 +19,15 @@ const ABI = [
     "event RiskParamsUpdated(uint256 newMaxLTV, uint256 newLiquidationThreshold, uint256 newLiquidationBonus, uint256 newCloseFactor)"
 ];
 
-// 4️⃣ 创建合约实例
+//  创建合约实例
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
-console.log("🚀 开始监听链上事件...");
+console.log(" 开始监听链上事件...");
 
-// ============================
-// 🔹 风控参数（你可以调整）
-// ============================
+//  风控参数（可调整）
 const LARGE_AMOUNT = ethers.parseUnits("1000", 18); // 大额阈值
 
-// ============================
-// 🔹 监听事件
-// ============================
-
+//  监听事件============
 // 存款
 contract.on("Deposited", (user, amount, time) => {
     console.log(` 存款: ${user} ${ethers.formatUnits(amount, 18)}`);
@@ -70,7 +65,7 @@ contract.on("Repaid", (user, amount, time) => {
     console.log(` 还款: ${user} ${ethers.formatUnits(amount, 18)}`);
 });
 
-// 清算（重点！）
+// 清算
 contract.on("Liquidated", (user, liquidator, repayAmount, liquidate, time) => {
     console.log(` 清算发生:`);
     console.log(`   用户: ${user}`);
@@ -89,5 +84,5 @@ contract.on("RiskParamsUpdated", (ltv, threshold, bonus, closeFactor) => {
     console.log(`   清算奖励: ${bonus}`);
     console.log(`   closeFactor: ${closeFactor}`);
 
-    console.log(`⚠️ 系统风险模型已改变！`);
+    console.log(` 系统风险模型已改变！`);
 });
