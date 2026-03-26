@@ -1,66 +1,194 @@
-## Foundry
+# MiniLend - 简化版去中心化借贷协议
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## 📋 项目概述
 
-Foundry consists of:
+MiniLend 是一个简化的去中心化借贷协议，旨在为Web3开发者提供一个学习借贷协议核心机制的项目示例。该项目实现了基本的借贷功能，包括资产存款、抵押、借款、还款和清算等核心功能。
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+**项目目的**：作为Web3开发学习项目，展示借贷协议的核心实现，为求职提供实际项目经验。
 
-## Documentation
+## 🚀 核心功能
 
-https://book.getfoundry.sh/
+### 1. **存款与取款**
+- 用户可以存入资产赚取利息
+- 支持随时取回存款（需满足流动性条件）
 
-## Usage
+### 2. **抵押与借款**
+- 使用抵押品（如WETH）作为担保
+- 基于抵押品价值计算可借款额度
+- 动态利率模型计算借款利息
 
-### Build
+### 3. **风险管理**
+- 贷款价值比（LTV）控制
+- 清算阈值和清算奖励机制
+- 健康因子监控
 
-```shell
-$ forge build
+### 4. **清算机制**
+- 当用户健康因子低于阈值时触发清算
+- 清算人可获得清算奖励
+- 保护协议免受坏账风险
+
+### 5. **利率模型**
+- 基于利用率的动态利率计算
+- 类似Aave/Compound的利率曲线
+- 存款利率和借款利率分离
+
+## 🏗️ 技术架构
+
+### 合约结构
+```
+MiniLend/
+├── src/
+│   ├── MiniLend.sol          # 主合约
+│   ├── InterestRateModel.sol # 利率模型
+│   ├── RiskManager.sol       # 风险管理
+│   ├── SimplePriceOracle.sol # 预言机
+│   ├── Asset.sol             # 借贷资产（USDC）
+│   └── Collateral.sol        # 抵押资产（WETH）
+├── test/
+│   ├── MiniLendTest.sol      # 主合约测试
+│   └── RiskManagerTest.sol   # 风险管理测试
+└── script/
+    ├── DeployScript.sol      # 部署脚本
+    ├── FullFlow.sol          # 完整流程交互
+    └── Liquidate.sol         # 清算脚本
 ```
 
-### Test
+### 技术栈
+- **Solidity**: ^0.8.13
+- **OpenZeppelin**: 访问控制、安全数学、重入防护
+- **Foundry**: 开发、测试和部署框架
+- **Hardhat/Forge**: 智能合约开发工具
+- **ethers.js**: 事件监控和前端交互
 
-```shell
-$ forge test
+## ⚙️ 核心机制
+
+### 风险管理
+- 贷款价值比（LTV）控制借款上限
+- 清算阈值触发风险位置清算
+- 清算奖励激励清算人参与
+- 清算因子限制单次清算比例
+
+### 利率模型
+- 基于利用率的动态利率计算
+- 分段利率曲线（类似主流借贷协议）
+- 存款利率与借款利率联动
+- 协议储备因子提取部分收益
+
+## 🛠️ 快速开始
+
+### 环境要求
+- Node.js 16+
+- Foundry (forge, cast, anvil)
+- Git
+
+### 安装依赖
+```bash
+# 安装 Foundry
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+
+# 克隆项目
+git clone <your-repo-url>
+cd MiniLend
+
+# 安装依赖
+forge install
 ```
 
-### Format
+### 运行测试
+```bash
+# 运行所有测试
+forge test
 
-```shell
-$ forge fmt
+# 运行特定测试
+forge test --match-test testDepositAsset
+forge test --match-test testLiquidate
+
+# 带详细输出
+forge test -vvv
 ```
 
-### Gas Snapshots
+### 部署合约
+```bash
+# 设置环境变量
+export PRIVATE_KEY=<your-private-key>
+export RPC_URL=<your-rpc-url>
 
-```shell
-$ forge snapshot
+# 部署到本地网络
+forge script script/DeployScript.sol --fork-url http://localhost:8545 --broadcast
+
+# 部署到测试网
+forge script script/DeployScript.sol --rpc-url $RPC_URL --broadcast
 ```
 
-### Anvil
+### 交互示例
+```bash
+# 运行完整流程
+forge script script/FullFlow.sol --fork-url http://localhost:8545 --broadcast
 
-```shell
-$ anvil
+# 执行清算
+forge script script/Liquidate.sol --fork-url http://localhost:8545 --broadcast
 ```
 
-### Deploy
+## 📈 事件监控
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+项目包含JavaScript事件监控脚本，可以实时监听链上事件：
+
+```javascript
+// 启动事件监听
+node scripts/eventMonitor.js
 ```
 
-### Cast
+监控的事件包括：
+- 存款/取款事件
+- 抵押/借款事件
+- 还款事件
+- 清算事件（重点监控）
+- 风险参数更新
 
-```shell
-$ cast <subcommand>
-```
+## 🔒 安全特性
 
-### Help
+1. **重入攻击防护**: 使用OpenZeppelin的ReentrancyGuard
+2. **数学安全**: 使用SafeMath和Math库
+3. **访问控制**: 关键功能仅限合约所有者
+4. **输入验证**: 所有函数都有参数验证
+5. **紧急暂停**: 风险管理器支持紧急暂停功能
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+## 🧪 测试覆盖
+
+项目包含全面的测试套件：
+- **单元测试**: 每个合约的独立功能测试
+- **集成测试**: 合约间交互测试
+- **边界测试**: 极端情况测试
+- **模糊测试**: 随机输入测试
+- **不变性测试**: 系统状态一致性验证
+
+## 🎯 项目要点
+
+本项目展示了以下关键概念：
+
+1. **借贷协议核心实现**
+   - 抵押借贷的基本工作流程
+   - 利息计算和累积机制
+   - 清算触发和执行过程
+
+2. **DeFi风险管理实践**
+   - 贷款价值比的实际应用
+   - 健康因子的计算和监控
+   - 清算参数的设计考量
+
+3. **智能合约开发模式**
+   - 合约的模块化分离设计
+   - 全面的测试覆盖策略
+   - 事件驱动的状态监控
+
+4. **开发工具使用**
+   - Foundry框架的测试和部署
+   - 本地开发环境的配置
+   - 脚本化的交互流程
+
+## ⚠️ 注意事项
+
+- 本项目为学习用途，未经充分审计
+- 请勿在生产环境使用
+- 代码仅供参考和学习Web3开发
