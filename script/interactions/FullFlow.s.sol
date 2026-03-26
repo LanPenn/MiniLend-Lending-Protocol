@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "lib/forge-std/src/Script.sol";
-import "lib/forge-std/src/console.sol";
+import "forge-std/Script.sol";
+import "forge-std/console.sol";
 import "../../src/MiniLend.sol";
 import "../../src/Collateral.sol";
 import "../../src/Asset.sol";
@@ -27,10 +27,7 @@ contract FullFlow is Script {
 
         //  开始广播交易
         vm.startBroadcast(deployerPrivateKey);
-         console.log(vm.envUint("PRIVATE_KEY"));
-        address user1 = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // 当前广播账户
-        address user = msg.sender; // 当前广播账户
-        console.log(user1);
+        address user = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // 当前广播账户
         console.log(user);
 
         // 模拟预言机设置价格
