@@ -87,46 +87,54 @@ curl -L https://foundry.paradigm.xyz | bash
 foundryup
 
 # 克隆项目
-git clone <your-repo-url>
-cd MiniLend
+git clone https://github.com/LanPenn/MiniLend-Lending-Protocol.git
+cd MiniLend-Lending-Protocol
 
 # 安装依赖
-forge install
+forge install foundry-rs/forge-std
+forge install OpenZeppelin/openzeppelin-contracts
 ```
 
 ### 运行测试
 ```bash
 # 运行所有测试
-forge test
+forge test -vvv
 
 # 运行特定测试
 forge test --match-test testDepositAsset
 forge test --match-test testLiquidate
 
-# 带详细输出
-forge test -vvv
-```
 
 ### 部署合约
 ```bash
+
+# 新建终端启动anvil
+anvil
 # 设置环境变量
 export PRIVATE_KEY=<your-private-key>
 export RPC_URL=<your-rpc-url>
 
 # 部署到本地网络
-forge script script/DeployScript.sol --fork-url http://localhost:8545 --broadcast
+forge script script/Deploy.s.sol --fork-url http://localhost:8545 --broadcast
 
 # 部署到测试网
-forge script script/DeployScript.sol --rpc-url $RPC_URL --broadcast
+forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
 ```
 
 ### 交互示例
 ```bash
 # 运行完整流程
-forge script script/FullFlow.sol --fork-url http://localhost:8545 --broadcast
+export MiniLend=<your-address>
+export Asset=<your-address>
+export Collateral=<your-address>
+export Oracle=<your-address>
+
+
+Collateral
+forge script script/FullFlow.s.sol --fork-url http://localhost:8545 --broadcast
 
 # 执行清算
-forge script script/Liquidate.sol --fork-url http://localhost:8545 --broadcast
+forge script script/Liquidate.s.sol --fork-url http://localhost:8545 --broadcast
 ```
 
 ## 📈 事件监控
@@ -135,7 +143,8 @@ forge script script/Liquidate.sol --fork-url http://localhost:8545 --broadcast
 
 ```javascript
 // 启动事件监听
-node scripts/eventMonitor.js
+npm install ethers
+node script/monitor.js
 ```
 
 监控的事件包括：
