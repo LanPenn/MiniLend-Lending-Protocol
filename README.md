@@ -124,7 +124,7 @@ forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
 ### 交互示例
 ```bash
 # 运行完整流程
-export Lend=<your-address>
+export LEND=<your-address>
 export ASSET=<your-address>
 export COLLATERAL=<your-address>
 export ORACLE=<your-address>
