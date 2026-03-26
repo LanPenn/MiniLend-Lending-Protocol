@@ -45,10 +45,10 @@ MiniLend/
 ├── test/
 │   ├── MiniLendTest.sol      # 主合约测试
 │   └── RiskManagerTest.sol   # 风险管理测试
-└── script/
+└── script/interactions
+           ├── FullFlow.sol          # 完整流程交互
+           └── Liquidate.sol         # 清算脚本
     ├── DeployScript.sol      # 部署脚本
-    ├── FullFlow.sol          # 完整流程交互
-    └── Liquidate.sol         # 清算脚本
     └── monitor.js            # 事件监控脚本
 ```
 
@@ -129,12 +129,10 @@ export Asset=<your-address>
 export Collateral=<your-address>
 export Oracle=<your-address>
 
-
-Collateral
-forge script script/FullFlow.s.sol --fork-url http://localhost:8545 --broadcast
+forge script script/interactions/FullFlow.s.sol --fork-url http://localhost:8545 --broadcast
 
 # 执行清算
-forge script script/Liquidate.s.sol --fork-url http://localhost:8545 --broadcast
+forge script script/interactions/Liquidate.s.sol --fork-url http://localhost:8545 --broadcast
 ```
 
 ## 📈 事件监控
