@@ -124,10 +124,10 @@ forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
 ### 交互示例
 ```bash
 # 运行完整流程
-export MiniLend=<your-address>
-export Asset=<your-address>
-export Collateral=<your-address>
-export Oracle=<your-address>
+export Lend=<your-address>
+export ASSET=<your-address>
+export COLLATERAL=<your-address>
+export ORACLE=<your-address>
 
 forge script script/interactions/FullFlow.s.sol --fork-url http://localhost:8545 --broadcast
 
