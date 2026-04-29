@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
@@ -33,6 +33,8 @@ contract RiskManager is Ownable {
         _;
     }
 
+//预言机代币地址
+ mapping(address => address) public priceFeeds;
 
 /**
  * @notice Update risk parameters of the protocol
@@ -120,5 +122,10 @@ contract RiskManager is Ownable {
     {
         return Math.mulDiv(debtToCover * assetPrice, (10000 + liquidation_bonus), collPrice * 10000);
     }
+
+
+    function setPriceFeed(address token, address feed) external onlyOwner {
+    priceFeeds[token] = feed;
+}
 }
 
