@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-MiniLend 是一个简化版去中心化借贷协议，实现了资产存款、抵押借款、动态利率、清算等核心 DeFi 借贷功能。集成 Chainlink 价格预言机，已在 Sepolia 测试链部署验证。
+MiniLend 是一个简化版去中心化借贷协议，实现了资产存款、抵押借款、动态利率、清算等核心 DeFi 借贷功能。集成 Chainlink 价格预言机，已在 Sepolia 测试链部署验证。项目链接：https://minilend.plcc.chat/
 
 ## 核心功能
 
