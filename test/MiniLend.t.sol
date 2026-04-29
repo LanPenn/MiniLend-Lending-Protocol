@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/MiniLend.sol";
 import "../src/InterestRateModel.sol";
 import "../src/RiskManager.sol";
-import "../src/SimplePriceOracle.sol";
+import "../src/ChainlinkPriceOracle.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-// Mock ERC20 代币用于测试
 contract MockERC20 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
     
@@ -17,13 +16,46 @@ contract MockERC20 is ERC20 {
     }
 }
 
+contract MockAggregator is Test {
+    int256 private price;
+    uint256 private updatedAt;
+    uint8 public decimals_;
+
+    constructor(uint8 _decimals, int256 _price) {
+        decimals_ = _decimals;
+        price = _price;
+        updatedAt = block.timestamp;
+    }
+
+    function latestRoundData() external view returns (
+        uint80,
+        int256 answer,
+        uint256,
+        uint256 updatedAt_,
+        uint80
+    ) {
+        return (0, price, 0, updatedAt, 0);
+    }
+
+    function decimals() external view returns (uint8) {
+        return decimals_;
+    }
+
+    function setPrice(int256 _price) external {
+        price = _price;
+        updatedAt = block.timestamp;
+    }
+}
+
 contract MiniLendTest is Test {
     MiniLend public lend;
     MockERC20 public asset;
     MockERC20 public collateral;
-    SimplePriceOracle public oracle;
+    ChainlinkPriceOracle public oracle;
     InterestRateModel public interestModel;
     RiskManager public riskManager;
+    MockAggregator public assetAgg;
+    MockAggregator public collAgg;
     
     address public owner;
     address public user1;
@@ -43,13 +75,17 @@ contract MiniLendTest is Test {
         asset = new MockERC20("USD Coin", "USDC");
         collateral = new MockERC20("Wrapped Ether", "WETH");
         
-        // 部署预言机
-        oracle = new SimplePriceOracle();
-        oracle.setPrice(address(asset), ASSET_PRICE);
-        oracle.setPrice(address(collateral), COLLATERAL_PRICE);
-        
-        // 部署风险管理器
         riskManager = new RiskManager();
+        
+        MockAggregator assetAggInstance = new MockAggregator(8, int256(1e8));        MockAggregator collAggInstance = new MockAggregator(8, int256(2000e8));
+        
+        assetAgg = assetAggInstance;
+        collAgg = collAggInstance;
+        
+        riskManager.setPriceFeed(address(asset), address(assetAggInstance));
+        riskManager.setPriceFeed(address(collateral), address(collAggInstance));
+        
+        oracle = new ChainlinkPriceOracle(riskManager);
         
         // 部署利率模型
         interestModel = new InterestRateModel();
@@ -84,6 +120,8 @@ contract MiniLendTest is Test {
         
         vm.prank(liquidator);
         asset.approve(address(lend), type(uint256).max);
+        vm.prank(liquidator);
+        collateral.approve(address(lend), type(uint256).max);
     }
     
     // ==================== 基础功能测试 ====================
@@ -165,14 +203,13 @@ contract MiniLendTest is Test {
     // ==================== 清算测试====================
     
     function testLiquidate() public {
-        // 用户1：存入抵押品并借款
         vm.startPrank(user1);
         lend.depositCollateral(100e18); // 100 WETH = 200,000 USD
         lend.borrow(150000e18); // 借150k USDC，接近上限
         vm.stopPrank();
         
         // 模拟价格下跌：抵押品价格从2000跌到1500
-        oracle.setPrice(address(collateral), 1500e18);
+        collAgg.setPrice(int256(1500e8));
         
         // 检查是否可清算
         (,uint256 borrowed , uint256 coll, , ) = lend.users(user1);
@@ -185,7 +222,9 @@ contract MiniLendTest is Test {
         uint256 debtBefore = borrowed;
         uint256 collBefore = coll;
         
+        asset.mint(liquidator, 1000000e18);
         vm.startPrank(liquidator);
+        asset.approve(address(lend), type(uint256).max);
         uint256 debtToCover = debtBefore * 5000 / 10000; // 最多清算50%
         lend.liquidate(user1, debtToCover);
         vm.stopPrank();
@@ -219,6 +258,10 @@ contract MiniLendTest is Test {
         
         // 模拟时间前进1年
         vm.warp(block.timestamp + 365 days);
+        
+        // 更新预言机价格以避免 stale price
+        assetAgg.setPrice(int256(1e8));
+        collAgg.setPrice(int256(2000e8));
         
         // 触发利息计算
         vm.startPrank(user1);
