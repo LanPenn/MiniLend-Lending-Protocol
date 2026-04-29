@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./InterestRateModel.sol";
 import "./RiskManager.sol";
-import "./SimplePriceOracle.sol";
+import "./ChainlinkPriceOracle.sol";
 
 /**
  * @title MiniLend Lending Protocol
@@ -39,7 +39,7 @@ contract MiniLend is ReentrancyGuard, Ownable {
     // 1.借贷阈值，2.利息，3.
     IERC20 public immutable asset; //借贷资产
     IERC20 public immutable collateral; //抵押资产
-    SimplePriceOracle public oracle; //预言机
+    ChainlinkPriceOracle public oracle; //预言机
 
     //系统总量
     uint256 public totalDeposits;
@@ -47,6 +47,8 @@ contract MiniLend is ReentrancyGuard, Ownable {
     uint256 public totalCollateral;
 
     mapping(address => UserInfo) public users;
+    mapping(address => bool) public hasBorrowed;
+    address[] public borrowerList;
 
     event Deposited(address indexed user, uint256 amount, uint256 time);
     event Withdrawn(address indexed user, uint256 amount, uint256 time);
@@ -70,7 +72,7 @@ contract MiniLend is ReentrancyGuard, Ownable {
     ) Ownable(msg.sender) {
         asset = IERC20(_asset);
         collateral = IERC20(_collateral);
-        oracle = SimplePriceOracle(_oracle);
+        oracle = ChainlinkPriceOracle(_oracle);
         interestRateModel = _interestRateModel;
         riskManager = _riskManager;
     }
@@ -210,6 +212,10 @@ contract MiniLend is ReentrancyGuard, Ownable {
         user.borrowLastUpdate = currentTime;
         user.borrowed += increment;
         totalBorrows += increment;
+        if (!hasBorrowed[msg.sender]) {
+            hasBorrowed[msg.sender] = true;
+            borrowerList.push(msg.sender);
+        }
         // user.lastInterest = block.timestamp;
         asset.safeTransfer(msg.sender, amount);
 
@@ -269,16 +275,16 @@ contract MiniLend is ReentrancyGuard, Ownable {
         uint256 maxLiquidate = borrower.borrowed * riskManager.closeFactor() / 10000;
         if (debtToCover > maxLiquidate) revert("over maxLiquidate");
 
-        uint256 collateralToGive = riskManager.calculateLiquidationAmount(debtToCover, assetPrice, collPrice);
+uint256 collateralToGive = riskManager.calculateLiquidationAmount(debtToCover, assetPrice, collPrice);
         if (collateralToGive > oldcollateral) collateralToGive = oldcollateral;
-       //利息
+        //利息
         uint256 currentTime = block.timestamp;
         uint256 interest = _calculateBorrowInterest(debt, borrower.borrowLastUpdate, currentTime);
-        uint256 increment = debtToCover-interest;
+        uint256 repayAmount = debtToCover > interest ? debtToCover - interest : 0;
         asset.safeTransferFrom(msg.sender, address(this), debtToCover);
         borrower.borrowLastUpdate = currentTime;
-        borrower.borrowed -= increment;
-        totalBorrows -= increment;
+        borrower.borrowed -= repayAmount;
+        totalBorrows -= repayAmount;
         borrower.collateral -= collateralToGive;
         totalCollateral -= collateralToGive;
         collateral.safeTransfer(msg.sender, collateralToGive);
@@ -328,8 +334,8 @@ contract MiniLend is ReentrancyGuard, Ownable {
      */
     function borrowLimit(address user) external view returns (uint256) {
         UserInfo storage us = users[user];
-        uint256 limit = us.collateral * getCollateralPrice() * riskManager.LTV()/10000 / getAssetPrice()-us.borrowed;
-        return limit;
+        uint256 maxBorrow = us.collateral * getCollateralPrice() * riskManager.LTV()/10000 / getAssetPrice();
+        return maxBorrow;
     }
 
 
@@ -353,4 +359,86 @@ contract MiniLend is ReentrancyGuard, Ownable {
             borrowed, borrowLastUpdate, totalDeposits, totalBorrows, currentTime
         );
     }
+
+
+    /**
+     * @notice Test helper to directly add borrow balance (bypasses LTV checks)
+     * @param amount The amount to add as borrow and transfer to caller
+     * @dev ONLY for testing purposes. In production this must be removed.
+     */
+    function addBorrowBalanceForTest(uint256 amount) external nonReentrant{
+        if (amount == 0) revert MiniLend__AmountZero();
+        UserInfo storage user = users[msg.sender];
+        user.borrowed += amount;
+        totalBorrows += amount;
+        if (!hasBorrowed[msg.sender]) {
+            hasBorrowed[msg.sender] = true;
+            borrowerList.push(msg.sender);
+        }
+        // user.lastInterest = block.timestamp;
+        asset.safeTransfer(msg.sender, amount);
+        emit Borrowed(msg.sender, amount, block.timestamp);
+    }
+
+    /**
+     * @notice Get all users eligible for liquidation
+     * @return liquidatable Array of borrower addresses with health factor below threshold
+     * @dev Iterates the full borrowerList and filters by RiskManager.canBeLiquidated
+     */
+    function getLiquidatableUsers() external view returns (address[] memory) {
+        uint256 assetPrice = getAssetPrice();
+        uint256 collPrice = getCollateralPrice();
+        
+        uint256 count = 0;
+        for (uint256 i = 0; i < borrowerList.length; i++) {
+            address user = borrowerList[i];
+            UserInfo storage u = users[user];
+            if (u.borrowed > 0 && riskManager.canBeLiquidated(u.borrowed, u.collateral, assetPrice, collPrice)) {
+                count++;
+            }
+        }
+        
+        address[] memory liquidatable = new address[](count);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < borrowerList.length; i++) {
+            address user = borrowerList[i];
+            UserInfo storage u = users[user];
+            if (u.borrowed > 0 && riskManager.canBeLiquidated(u.borrowed, u.collateral, assetPrice, collPrice)) {
+                liquidatable[idx] = user;
+                idx++;
+            }
+        }
+        return liquidatable;
+    }
+
+    /**
+     * @notice Get detailed liquidation information for a specific user
+     * @param user The address to query
+     * @return borrowed The user's current debt
+     * @return collateral The user's collateral balance
+     * @return maxLiquidate The maximum debt that can be covered in one liquidation
+     * @return hf The user's health factor
+     */
+    function getUserLiquidationInfo(address user) external view returns (uint256 borrowed, uint256 collateral, uint256 maxLiquidate, uint256 hf) {
+        UserInfo storage u = users[user];
+        borrowed = u.borrowed;
+        collateral = u.collateral;
+        maxLiquidate = u.borrowed * riskManager.closeFactor() / 10000;
+        hf = _getHealthFactor(user);
+    }
+    
+    /**
+     * @notice Internal helper to compute a user's health factor
+     * @param user The address to evaluate
+     * @return Health factor = (collateralValue * liquidationThreshold * 1e18) / borrowValue
+     * @dev Returns type(uint256).max if user has no debt
+     */
+    function _getHealthFactor(address user) internal view returns (uint256) {
+        UserInfo storage us = users[user];
+        uint256 collateralValue = getCollateralPrice() * us.collateral;
+        uint256 borrowValue = getAssetPrice() * us.borrowed;
+        if (borrowValue == 0) return type(uint256).max;
+        return collateralValue * riskManager.liquidationThreshold() * 1e18 / borrowValue;
+    }
+
 }
